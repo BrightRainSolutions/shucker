@@ -1,4 +1,4 @@
-# OysterCatcher: Build Spec (MVP)
+# Shucker: Build Spec (MVP)
 
 A private family PWA (any number of family members) to log oyster dates, rate each oyster separately, keep The Photo, and map where the oysters came from and where we ate them.
 
@@ -17,7 +17,7 @@ Family members only, accounts added by hand. Everyone sees all visits. No public
 | Geocoding | Nominatim (OSM) | Search-to-fly only. Max 1 request/sec, debounce input, show OSM attribution. |
 | Local storage | `idb-keyval` | Offline queue for photos and pending writes |
 | Hosting | Netlify (static) | SPA redirect: `/* /index.html 200` |
-| Repo | `BrightRainSolutions/oystercatcher` | Public (Netlify's free plan won't build private org repos). No secrets in the repo. |
+| Repo | `BrightRainSolutions/shucker` | Public (Netlify's free plan won't build private org repos). No secrets in the repo. |
 
 Environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`. The anon key is safe in the client because RLS does the gating.
 
@@ -256,7 +256,7 @@ This should not look like a default CRUD app. It needs pop and personality:
 - Shell icons for Overall, playful slider copy (see attribute table), fun loading and empty-state messages ("No oysters yet. Tragic.").
 - Big touch targets; this gets used one-handed at a bar with a cocktail fork in the other hand.
 - Photo-forward: The Photo is the hero of every Oyster Date.
-- App icon: a black oystercatcher (original illustration, simple shape).
+- App icon: an oyster knife over an open half shell (original illustration, simple shape).
 - Respect dark mode.
 
 ---
@@ -271,7 +271,7 @@ This should not look like a default CRUD app. It needs pop and personality:
 
 ## 12. Build order
 
-0. Init the local git repo, create the private repo `BrightRainSolutions/oystercatcher` on GitHub (under the org, not a personal account, e.g. `gh repo create BrightRainSolutions/oystercatcher --private --source=. --push`), and push.
+0. Init the local git repo, create the private repo `BrightRainSolutions/shucker` on GitHub (under the org, not a personal account, e.g. `gh repo create BrightRainSolutions/shucker --private --source=. --push`), and push.
 1. Supabase project, schema migration, RLS, storage bucket, keepalive table. Seed file.
 2. Vue scaffold, PWA config, auth, landing.
 3. Add Oyster Date flow online-only, including photo resize and upload.

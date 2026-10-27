@@ -1,4 +1,4 @@
-# OysterCatcher
+# Shucker
 
 A private family PWA to log Oyster Dates, rate each oyster separately, keep The Photo, and map where the oysters came from. See [SPEC.md](SPEC.md).
 
@@ -53,4 +53,4 @@ Free Supabase projects pause after about a week of quiet. `netlify/functions/kee
 
 ## Icons
 
-`npm run icons` re-renders the PNG icons from `src/assets/oystercatcher.svg`.
+Drop the square logo (1024px+) at `src/assets/shucker.png`, then `npm run icons` re-renders the favicon and all PWA/iOS icons from it.

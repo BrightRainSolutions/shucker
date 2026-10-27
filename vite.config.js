@@ -8,10 +8,10 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.png', 'apple-touch-icon.png'],
       manifest: {
-        name: 'OysterCatcher',
-        short_name: 'Oysters',
+        name: 'Shucker',
+        short_name: 'Shucker',
         description: 'Our oyster dates, rated one oyster at a time.',
         theme_color: '#0b3a5b',
         background_color: '#0b3a5b',

@@ -3,7 +3,6 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { configured } from '../lib/supabase'
-import bird from '../assets/oystercatcher.svg'
 
 const route = useRoute()
 const router = useRouter()
@@ -31,8 +30,8 @@ async function submit() {
 <template>
   <main class="login">
     <div class="hero">
-      <img :src="bird" alt="" class="bird" />
-      <h1>OysterCatcher</h1>
+      <img src="/pwa-512.png" alt="" class="mark" />
+      <h1>Shucker</h1>
       <p class="tag">One family. A lot of oysters. Strong opinions.</p>
     </div>
 
@@ -69,7 +68,7 @@ async function submit() {
   gap: 24px;
 }
 .hero { text-align: center; }
-.bird { width: 140px; height: 140px; }
+.mark { width: 140px; height: 140px; border-radius: 22%; box-shadow: var(--shadow); }
 h1 { font-size: 2.6rem; margin: 4px 0 6px; color: var(--sea); }
 @media (prefers-color-scheme: dark) {
   h1 { color: var(--cream); }

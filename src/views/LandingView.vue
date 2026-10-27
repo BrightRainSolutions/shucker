@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { findTodayVisit, getVisitBundle } from '../lib/data'
 import PendingPill from '../components/PendingPill.vue'
-import bird from '../assets/oystercatcher.svg'
 
 const router = useRouter()
 const { me, user, signOut } = useAuth()
@@ -55,8 +54,8 @@ async function doSignOut() {
     </div>
 
     <div class="brand">
-      <img :src="bird" alt="" class="bird" />
-      <h1>OysterCatcher</h1>
+      <img src="/pwa-512.png" alt="" class="mark" />
+      <h1>Shucker</h1>
     </div>
 
     <div class="buttons">
@@ -104,7 +103,7 @@ async function doSignOut() {
 }
 .menu p { margin: 0 0 10px; }
 .brand { text-align: center; margin: 4vh 0 3vh; }
-.bird { width: min(44vw, 200px); height: auto; filter: drop-shadow(0 10px 20px rgba(11, 58, 91, 0.2)); }
+.mark { width: min(44vw, 200px); height: auto; border-radius: 22%; filter: drop-shadow(0 10px 20px rgba(11, 58, 91, 0.2)); }
 h1 { font-size: 2.4rem; margin: 6px 0 0; }
 .buttons { display: flex; flex-direction: column; gap: 16px; margin-top: auto; }
 .big-btn {

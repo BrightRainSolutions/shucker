@@ -1,4 +1,4 @@
--- OysterCatcher seed data. Not a migration.
+-- Shucker seed data. Not a migration.
 -- Apply to the linked project with:  npx supabase db push --include-seed
 -- Oyster coordinates are bay-level approximations (location_approx = true).
 -- Place coordinates were looked up in OpenStreetMap (Nominatim) at build time.

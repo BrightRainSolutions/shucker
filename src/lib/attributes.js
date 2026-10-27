@@ -28,7 +28,7 @@ const loading = [
   'Shucking…',
   'Consulting the tide tables…',
   'Fetching lemon wedges…',
-  'Asking the oystercatcher…',
+  'Sharpening the shucker…',
   'Chilling on crushed ice…',
 ]
 export const loadingLine = () => loading[Math.floor(Math.random() * loading.length)]
