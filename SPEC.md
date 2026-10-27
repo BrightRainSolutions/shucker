@@ -245,7 +245,7 @@ Oyster bars have bad signal. Writes must not fail just because the network is go
 
 Supabase free projects pause after about a week of low activity. Use a Netlify Scheduled Function (`netlify/functions/keepalive.mjs`), not a GitHub Action: GitHub disables scheduled workflows on public repos after 60 days without commits, and this needs zero babysitting.
 - Cron daily (pick an odd minute, not :00).
-- Read `select id from keepalive limit 1` via the REST endpoint with the anon key, reusing the site's `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` env vars. A tiny `keepalive` table readable by `anon` means the anon key can't read real data.
+- Call `rpc/keepalive_ping` via the REST endpoint with the anon key, reusing the site's `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` env vars. It stamps `keepalive.pinged_at`: a write, because a plain read did not count as activity. anon may execute only that function, so the anon key can't read or change real data.
 
 ---
 

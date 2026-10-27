@@ -41,7 +41,7 @@ On each iPhone: open the site in Safari → Share → Add to Home Screen.
 
 ## Keep-alive
 
-Free Supabase projects pause after about a week of quiet. `netlify/functions/keepalive.mjs` is a Netlify Scheduled Function that reads the anon-readable `keepalive` table once a day. It reuses the site's `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, so there's nothing else to configure. Check it under Netlify → Logs → Functions → keepalive, where "Run now" triggers it by hand. Scheduled functions only run on the published production deploy.
+Free Supabase projects pause after about a week of quiet. `netlify/functions/keepalive.mjs` is a Netlify Scheduled Function that calls `keepalive_ping()` once a day, a tiny write that stamps `keepalive.pinged_at` (a read alone did not count as activity). It reuses the site's `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, so there's nothing else to configure. Check it under Netlify → Cloud compute → Functions → keepalive, where "Run now" triggers it by hand. Scheduled functions only run on the published production deploy.
 
 ## How offline works
 
