@@ -11,6 +11,11 @@ const props = defineProps({
   addLabel: { type: Function, default: null },
   limit: { type: Number, default: 30 },
   openOnFocus: { type: Boolean, default: true },
+  // (item, lowercased query) => boolean; near misses offered as "Did you mean"
+  // only when `filter` finds nothing, so a typo picks the existing item
+  fuzzy: { type: Function, default: null },
+  // keep the field focused and empty after a pick, for entering several in a row
+  stayOpen: { type: Boolean, default: false },
 })
 const emit = defineEmits(['select', 'add'])
 
@@ -18,22 +23,31 @@ const query = ref('')
 const open = ref(false)
 const input = ref(null)
 
-const results = computed(() => {
+const matched = computed(() => {
   const qq = query.value.trim().toLowerCase()
-  const list = qq ? props.items.filter((it) => props.filter(it, qq)) : props.items
-  return list.slice(0, props.limit)
+  if (!qq) return { list: props.items, fuzzy: false }
+  const list = props.items.filter((it) => props.filter(it, qq))
+  if (list.length || !props.fuzzy) return { list, fuzzy: false }
+  return { list: props.items.filter((it) => props.fuzzy(it, qq)), fuzzy: true }
 })
+const results = computed(() => matched.value.list.slice(0, props.limit))
+
+function done() {
+  query.value = ''
+  open.value = false
+  if (props.stayOpen) input.value?.focus()
+  else input.value?.blur()
+}
 
 function choose(item) {
   emit('select', item)
-  query.value = ''
-  open.value = false
-  input.value?.blur()
+  done()
 }
 
 function add() {
   emit('add', query.value.trim())
-  open.value = false
+  if (props.stayOpen) done()
+  else open.value = false
 }
 
 function onBlur() {
@@ -74,11 +88,12 @@ defineExpose({ clear: () => (query.value = ''), focus: () => input.value?.focus(
     <ul v-if="open" class="list card" role="listbox">
       <li v-for="item in results" :key="item[itemKey]">
         <button type="button" class="opt" @mousedown.prevent @click="choose(item)">
+          <span v-if="matched.fuzzy" class="maybe small">Did you mean</span>
           <slot name="item" :item="item">{{ item.name }}</slot>
         </button>
       </li>
       <li v-if="!results.length && !addLabel" class="none muted small">Nothing matches. The sea is vast, though.</li>
-      <li v-if="addLabel">
+      <li v-if="addLabel && addLabel(query.trim())">
         <button type="button" class="opt add" @mousedown.prevent @click="add">{{ addLabel(query.trim()) }}</button>
       </li>
     </ul>
@@ -125,5 +140,6 @@ defineExpose({ clear: () => (query.value = ''), focus: () => input.value?.focus(
 .opt:hover,
 .opt:focus-visible { background: var(--surface-2); outline: none; }
 .opt.add { color: var(--accent); font-weight: 800; }
+.maybe { display: block; color: var(--muted); font-weight: 700; }
 .none { padding: 12px; }
 </style>

@@ -19,7 +19,7 @@ Family members only, accounts added by hand. Everyone sees all visits. No public
 | Hosting | Netlify (static) | SPA redirect: `/* /index.html 200` |
 | Repo | `BrightRainSolutions/shucker` | Public (Netlify's free plan won't build private org repos). No secrets in the repo. |
 
-Environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`. The anon key is safe in the client because RLS does the gating.
+Environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`. The anon key is safe in the client because RLS does the gating. `ANTHROPIC_API_KEY` (Netlify only, secret, never `VITE_`-prefixed) for the oyster lookup (see 6).
 
 ---
 
@@ -185,7 +185,7 @@ Two big buttons, nothing else (plus a small profile/sign-out affordance):
 ### Add Oyster Date (stepper, 4 steps)
 1. **Where and when.** Place combobox: existing places, sorted nearest-first if geolocation is granted, else most recent. Last option: **+ Add place** (inline form: name, city, pin defaults to current location, editable on a small map). Date defaults to today. Also a "Home" toggle that clears place. On continue: upsert visit on `(place_id, visited_on)` and use whatever id comes back.
 2. **The Photo.** Big "Add The Photo" button (`<input type="file" accept="image/*">`, deliberately no `capture`, so phones offer camera or photo library: the shot may already be taken). Show the photo immediately from the local blob. Skippable. Becomes `cover_photo_id`.
-3. **What we ate.** Oyster combobox (search by name, grower, growing area), multi-add as chips. Last option: **+ Add oyster** (inline: name, grower, growing area, species, optional pin with the same place search as the pin picker, pre-filled with the growing area; no default point, since the table is rarely where it grows; see 6). Each chip creates a tasting (upsert on `visit_id, oyster_id`). Optional price per tasting.
+3. **What we ate.** Oyster combobox (search by name, grower, growing area), multi-add as chips. It stays focused after each pick, so a whole tray goes in by typing names in a row. A near miss ("Kushi") is offered as "Did you mean Kusshi" and Enter picks it, to avoid duplicates. Last option: **+ Add "<name>"** adds the oyster by name alone, with no form; the rest is looked up in the background (see 6), and the chip says "looking it up…" until it lands. Each chip creates a tasting (upsert on `visit_id, oyster_id`). Optional price per tasting.
 4. **Rate.** One card per tasting. Overall (big, 1 to 5 shell icons) and Would Order Again (toggle) up top. The other eight attributes always visible as 1–5 sliders with tick marks. An unrated slider parks a hollow knob in the middle on a grey track with a "Not rated" tag, so it can't be mistaken for a 3. The first deliberate touch sets it (a tap on the parked knob means 3; vertical scrolling never sets a score), and the live word beside the value tracks the end labels ("leaning ocean spray"). An × clears it. Untouched means no score is saved; no prompts about unrated attributes. If you've rated this oyster on another night and tonight's card is still blank, show "Your last: 5 · Oct 13" with a **Start from it** button that copies those scores and Would Order Again (not the note). Never applied automatically. Note field. Small camera button per card for a close-up photo (`tasting_id` set). If other family members have already rated, show each one's overall as a small badge in their color, but not their full scores until you've saved yours (no anchoring).
 
 Everything autosaves. No final Submit button.
@@ -208,10 +208,17 @@ Full-screen MapLibre view with a draggable marker. Tap to drop, drag to adjust. 
 
 ---
 
-## 6. Oyster origin locations
+## 6. Oyster lookup and origin locations
+
+- A new oyster is saved with its name only and `lookup_status = 'pending'`. Whenever an oyster reaches the server, the phone POSTs its id to `netlify/functions/oyster-lookup`, a Netlify Background Function (202 at once, runs up to 15 min), with the signed-in person's Supabase token. Every database call in the function runs as that person, so RLS applies.
+- The function claims the oyster (`claim_oyster_lookup`: only one lookup at a time; a run stuck for 5 minutes is retried), then asks Claude (`claude-opus-5-5`) with web search: first limited to oysterater.com, then the open web if that finds nothing trustworthy. Claude ends by calling a strict `record_oyster` tool, so the answer always has the same shape. The rules it follows are in `netlify/functions/oyster-lookup/domain.md`.
+- `finish_oyster_lookup` fills **only empty fields** (country excepted, since it defaults to USA), fixes the name's case when it only differs in case, sets a pin only if there is none (`location_approx` stays true), stores the Shucker fact with its source, and flags the oyster `needs_review`. Low-confidence answers aren't saved. Names that cover many farms (Kumamoto) get only what's true of all of them.
+- Failed lookups are not retried automatically, so a persistent error can't keep spending; the oyster page has **Try again**. Facts and links only: no descriptions or reviews are copied from any source.
+- **Shucker fact**: one sourced sentence, shown on the rating card and the oyster page.
+- Oyster detail shows "Looked up automatically from <site>. Look right?" with **Looks right** (clears the flag) and **Not this oyster** (clears the looked-up fields).
 
 - Location is **optional** when adding an oyster at the table. Unpinned oysters get a "Needs a pin" badge in lists and on oyster detail.
-- A small "Needs a pin (3)" link on the Oyster Dates screen goes to a list of unpinned oysters for couch-time pinning.
+- A small "To check (3)" link on the Oyster Dates screen goes to couch-time homework: looked-up details to confirm, oysters the lookup couldn't find, and oysters that need a pin.
 
 ---
 

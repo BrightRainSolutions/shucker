@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQueue } from '../composables/useQueue'
 import { useAuth } from '../composables/useAuth'
@@ -19,7 +19,8 @@ import {
 } from '../lib/data'
 import { distanceKm, getPosition } from '../lib/geo'
 import { formatDate, localToday } from '../lib/dates'
-import { SPECIES, loadingLine } from '../lib/attributes'
+import { loadingLine } from '../lib/attributes'
+import { lookingUp, pollWhile, sweepLookups } from '../lib/lookups'
 import TopBar from '../components/TopBar.vue'
 import ComboBox from '../components/ComboBox.vue'
 import MiniMap from '../components/MiniMap.vue'
@@ -27,7 +28,6 @@ import ToggleSwitch from '../components/ToggleSwitch.vue'
 import CameraButton from '../components/CameraButton.vue'
 import PhotoImg from '../components/PhotoImg.vue'
 import RatingCard from '../components/RatingCard.vue'
-import LocationSearch from '../components/LocationSearch.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -61,6 +61,7 @@ onMounted(async () => {
   oysters.value = o
   myRatings.value = mine
   loading.value = false
+  watchLookups.kick()
   // Arriving from an oyster's history (?t=<tasting id>): jump to that card.
   if (route.query.t) {
     await nextTick()
@@ -147,47 +148,43 @@ async function onCover(file) {
 }
 
 // ---------------------------------------------------------------- Step 3
-const addingOyster = ref(false)
-const newOyster = reactive({ name: '', grower: '', growing_area: '', species: '', pin: false, lat: null, lng: null })
 const oysterFilter = (o, qq) => `${o.name} ${o.grower || ''} ${o.growing_area || ''} ${o.region || ''}`.toLowerCase().includes(qq)
 const chosenIds = computed(() => new Set((bundle.value?.tastings || []).map((t) => t.oyster_id)))
 const pickable = computed(() => oysters.value.filter((o) => !chosenIds.value.has(o.id)))
+
+// "Kushi" -> Kusshi: one or two letters off, depending on length.
+function editDistance(a, b) {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j)
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i]
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+    }
+    prev = cur
+  }
+  return prev[b.length]
+}
+const nearMiss = (o, qq) => qq.length >= 4 && editDistance(o.name.toLowerCase(), qq) <= (qq.length <= 6 ? 1 : 2)
 
 async function pickOyster(o) {
   await addTasting(visitId.value, o.id)
   await reload()
 }
 
-function startAddOyster(name) {
-  addingOyster.value = true
-  Object.assign(newOyster, { name: name || '', grower: '', growing_area: '', species: '', pin: false, lat: null, lng: null })
+// Name only: everything else is looked up in the background (lib/lookups).
+async function quickAddOyster(name) {
+  if (!name) return
+  const id = await createOyster({ name })
+  await addTasting(visitId.value, id)
+  oysters.value = await loadOysters()
+  await reload()
+  sweepLookups()
+  watchLookups.kick()
 }
 
-// No default point: where you're sitting is rarely where the oyster grows.
-// The search starts from the growing area instead.
-function togglePin() {
-  newOyster.pin = !newOyster.pin
-}
-
-async function saveNewOyster() {
-  busy.value = true
-  try {
-    const id = await createOyster({
-      name: newOyster.name.trim(),
-      grower: newOyster.grower.trim() || null,
-      growing_area: newOyster.growing_area.trim() || null,
-      species: newOyster.species || null,
-      lat: newOyster.pin ? newOyster.lat : null,
-      lng: newOyster.pin ? newOyster.lng : null,
-    })
-    oysters.value = await loadOysters()
-    await addTasting(visitId.value, id)
-    addingOyster.value = false
-    await reload()
-  } finally {
-    busy.value = false
-  }
-}
+// Show details as they arrive.
+const watchLookups = pollWhile(() => (bundle.value?.tastings || []).some((t) => lookingUp(t.oyster) || t.oyster?._local), reload)
+onBeforeUnmount(() => watchLookups.stop())
 
 async function setPrice(t, v) {
   const price = v === '' || v == null ? null : Number(v)
@@ -325,15 +322,17 @@ function next() {
       <!-- 3. What we ate -->
       <section v-else-if="step === 3" class="stack">
         <h2>What are we eating?</h2>
+        <p class="small muted hint">Type each name off the menu. We'll look up the rest.</p>
         <ComboBox
-          v-if="!addingOyster"
           :items="pickable"
           :filter="oysterFilter"
+          :fuzzy="nearMiss"
+          stay-open
           placeholder="Kusshi, Hama Hama, Hood Canal…"
           :open-on-focus="true"
-          :add-label="(qq) => (qq ? `+ Add “${qq}”` : '+ Add oyster')"
+          :add-label="(qq) => (qq ? `+ Add “${qq}”` : null)"
           @select="pickOyster"
-          @add="startAddOyster"
+          @add="quickAddOyster"
         >
           <template #item="{ item }">
             <div>
@@ -344,51 +343,12 @@ function next() {
           </template>
         </ComboBox>
 
-        <div v-if="addingOyster" class="card stack">
-          <h3>New oyster</h3>
-          <label class="field"><span>Name</span><input v-model="newOyster.name" class="input" /></label>
-          <label class="field"><span>Grower</span><input v-model="newOyster.grower" class="input" /></label>
-          <label class="field">
-            <span>Growing area</span>
-            <input v-model="newOyster.growing_area" class="input" placeholder="Hood Canal" />
-          </label>
-          <label class="field">
-            <span>Species</span>
-            <select v-model="newOyster.species" class="input">
-              <option value="">Not sure</option>
-              <option v-for="s in SPECIES" :key="s.value" :value="s.value">{{ s.label }}</option>
-            </select>
-          </label>
-          <button type="button" class="btn ghost" @click="togglePin">
-            {{ newOyster.pin ? 'Skip the pin for now' : 'Drop a pin where it grows' }}
-          </button>
-          <LocationSearch
-            v-if="newOyster.pin"
-            :initial="newOyster.growing_area.trim()"
-            placeholder="Search where it grows, e.g. York River VA"
-            @pick="Object.assign(newOyster, { lat: $event.lat, lng: $event.lng })"
-          />
-          <MiniMap
-            v-if="newOyster.pin"
-            :lat="newOyster.lat"
-            :lng="newOyster.lng"
-            editable
-            :zoom="8"
-            height="220px"
-            @update="Object.assign(newOyster, $event)"
-          />
-          <div class="row">
-            <button class="btn ghost" @click="addingOyster = false">Cancel</button>
-            <div class="spacer" />
-            <button class="btn primary" :disabled="!newOyster.name.trim() || busy" @click="saveNewOyster">Add it</button>
-          </div>
-        </div>
-
         <ul class="chips">
           <li v-for="t in bundle?.tastings || []" :key="t.id" class="tchip">
             <div class="tname">
               <strong>{{ t.oyster?.name }}</strong>
-              <span class="small muted">{{ t.oyster?.growing_area }}</span>
+              <span v-if="lookingUp(t.oyster) || t.oyster?._local" class="small muted looking">looking it up…</span>
+              <span v-else class="small muted">{{ [t.oyster?.growing_area, t.oyster?.region].filter(Boolean).join(', ') }}</span>
             </div>
             <label class="price">
               <span>$</span>
@@ -493,6 +453,9 @@ function next() {
 }
 @keyframes pop { from { transform: scale(0.9); opacity: 0; } }
 .tname { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.hint { margin: -6px 0 0; }
+.looking { font-style: italic; animation: breathe 1.6s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: 0.45; } }
 .price {
   display: flex;
   align-items: center;

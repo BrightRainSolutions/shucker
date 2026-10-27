@@ -1,14 +1,16 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
-import { getOysterBundle, lastRatingFor, loadMyRatings } from '../lib/data'
+import { getOysterBundle, lastRatingFor, loadMyRatings, updateOyster } from '../lib/data'
+import { lookingUp, pollWhile, retryLookup } from '../lib/lookups'
 import { ALL_SCORES, loadingLine, speciesLabel } from '../lib/attributes'
 import { formatDate } from '../lib/dates'
 import TopBar from '../components/TopBar.vue'
 import MiniMap from '../components/MiniMap.vue'
 import PairedBars from '../components/PairedBars.vue'
 import PhotoImg from '../components/PhotoImg.vue'
+import ShuckerFact from '../components/ShuckerFact.vue'
 
 const route = useRoute()
 const { user, me, peopleFor, profileFor, shortName } = useAuth()
@@ -20,8 +22,11 @@ async function load() {
   ;[bundle.value, myRatings.value] = await Promise.all([getOysterBundle(route.params.id), loadMyRatings(user.value?.id)])
   loading.value = false
 }
-onMounted(load)
+// Details fill in while a lookup runs.
+const watchLookup = pollWhile(() => lookingUp(bundle.value?.oyster), load)
+onMounted(() => load().then(watchLookup.kick))
 watch(() => route.params.id, load)
+onBeforeUnmount(() => watchLookup.stop())
 
 const o = computed(() => bundle.value?.oyster)
 const statFor = (pid) => bundle.value?.stats.find((s) => s.user_id === pid)
@@ -60,6 +65,34 @@ const oysterater = computed(() =>
 const latest = computed(() => (o.value ? lastRatingFor(myRatings.value, o.value.id) : null))
 const myColor = computed(() => me.value?.color || profileFor(user.value?.id).color)
 const rateTo = (t) => ({ name: 'add', params: { visitId: t.visit.id }, query: { step: 4, t: t.id } })
+// Claude-filled details stay flagged until someone confirms them.
+const sourceHost = computed(() => {
+  try {
+    return new URL(o.value?.details_url).hostname.replace(/^www./, '')
+  } catch {
+    return null
+  }
+})
+async function confirmDetails() {
+  await updateOyster(o.value.id, { needs_review: false })
+  await load()
+}
+// The lookup only filled empty fields, and these oysters were added by name.
+async function clearDetails() {
+  if (!confirm(`Clear what was looked up for ${o.value.name}?`)) return
+  await updateOyster(o.value.id, {
+    grower: null, growing_area: null, region: null, species: null, cultivation: null,
+    lat: null, lng: null, location_approx: true, oysterater_url: null, details_url: null,
+    fact: null, fact_url: null, needs_review: false, lookup_status: 'not_found',
+  })
+  await load()
+}
+async function lookAgain() {
+  await retryLookup(o.value.id)
+  await load()
+  watchLookup.kick()
+}
+
 const thumbOf = (t) => t.photos?.[0]?.thumb_path || t.visit?.cover?.thumb_path || null
 </script>
 
@@ -75,6 +108,7 @@ const thumbOf = (t) => t.photos?.[0]?.thumb_path || t.visit?.cover?.thumb_path |
         <p class="muted facts">
           {{ [o.grower, o.growing_area, o.region, speciesLabel(o.species), o.cultivation].filter(Boolean).join(' · ') }}
         </p>
+        <p v-if="lookingUp(o)" class="muted small looking">Looking it up…</p>
         <a :href="oysterater.href" target="_blank" rel="noopener" class="small">{{ oysterater.label }}</a>
         <p v-if="latest" class="latest">
           Your latest:
@@ -82,6 +116,26 @@ const thumbOf = (t) => t.photos?.[0]?.thumb_path || t.visit?.cover?.thumb_path |
           <span class="muted"> · {{ formatDate(latest.visited_on) }}</span>
         </p>
       </section>
+
+      <section v-if="o.needs_review" class="card review stack">
+        <p class="small">
+          Looked up automatically<template v-if="sourceHost">
+            from <a :href="o.details_url" target="_blank" rel="noopener">{{ sourceHost }}</a></template
+          >. Look right?
+        </p>
+        <div class="row">
+          <button class="btn primary" @click="confirmDetails">Looks right</button>
+          <button class="btn ghost" @click="clearDetails">Not this oyster</button>
+        </div>
+      </section>
+      <section v-else-if="o.lookup_status === 'not_found' || o.lookup_status === 'failed'" class="card review row">
+        <p class="small grow">
+          {{ o.lookup_status === 'failed' ? 'The lookup hit a snag.' : "Couldn't find this one online." }}
+        </p>
+        <button class="btn" @click="lookAgain">Try again</button>
+      </section>
+
+      <ShuckerFact :oyster="o" />
 
       <section>
         <template v-if="o.lat != null">
@@ -151,6 +205,10 @@ const thumbOf = (t) => t.photos?.[0]?.thumb_path || t.visit?.cover?.thumb_path |
   border: 3px dashed var(--lemon);
 }
 .latest { margin: 10px 0 0; font-size: 1.05rem; }
+.review { border: 3px dashed var(--lemon); }
+.review p { margin: 0; }
+.grow { flex: 1; }
+.looking { margin: 2px 0; font-style: italic; }
 .hist {
   display: flex;
   align-items: center;

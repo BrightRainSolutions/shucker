@@ -10,6 +10,8 @@ import ToggleSwitch from './ToggleSwitch.vue'
 import CameraButton from './CameraButton.vue'
 import PhotoImg from './PhotoImg.vue'
 import PairedBars from './PairedBars.vue'
+import ShuckerFact from './ShuckerFact.vue'
+import { lookingUp } from '../lib/lookups'
 
 const props = defineProps({
   tasting: { type: Object, required: true },
@@ -97,7 +99,8 @@ async function onPhoto(file) {
     <header class="head">
       <div>
         <h3>{{ tasting.oyster?.name || 'Mystery oyster' }}</h3>
-        <p class="muted small sub">
+        <p v-if="lookingUp(tasting.oyster) || tasting.oyster?._local" class="muted small sub">looking it up…</p>
+        <p v-else class="muted small sub">
           {{ [tasting.oyster?.grower, tasting.oyster?.growing_area].filter(Boolean).join(' · ') }}
         </p>
       </div>
@@ -114,6 +117,8 @@ async function onPhoto(file) {
         </template>
       </div>
     </header>
+
+    <ShuckerFact :oyster="tasting.oyster" class="rfact" />
 
     <div v-if="last && blank" class="last row">
       <span class="small">Your last: <strong :style="{ color: myColor }">{{ lastLabel }}</strong></span>
@@ -175,6 +180,7 @@ async function onPhoto(file) {
 </template>
 
 <style scoped>
+.rfact { margin-bottom: 12px; }
 .rcard + .rcard { margin-top: 16px; }
 .rcard { scroll-margin-top: calc(72px + var(--safe-top)); }
 .head { display: flex; align-items: flex-start; gap: 10px; justify-content: space-between; }

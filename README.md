@@ -35,13 +35,23 @@ Schema changes go in `supabase/migrations/` and are applied with `npx supabase d
 
 ## Deploy (Netlify)
 
-Connect the repo, build `npm run build`, publish `dist` (already in `netlify.toml`, including the SPA redirect). Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Netlify's environment variables, with scopes including Builds and Functions (the default), since the keep-alive function reads them too.
+Connect the repo, build `npm run build`, publish `dist` (already in `netlify.toml`, including the SPA redirect). Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Netlify's environment variables, with scopes including Builds and Functions (the default), since the keep-alive and oyster-lookup functions read them too. Also set `ANTHROPIC_API_KEY` (secret; Production context is enough) for the oyster lookup. Never give it a `VITE_` prefix: those are compiled into the app.
 
 On each iPhone: open the site in Safari → Share → Add to Home Screen.
 
 ## Keep-alive
 
 Free Supabase projects pause after about a week of quiet. `netlify/functions/keepalive.mjs` is a Netlify Scheduled Function that calls `keepalive_ping()` once a day, a tiny write that stamps `keepalive.pinged_at` (a read alone did not count as activity). It reuses the site's `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, so there's nothing else to configure. Check it under Netlify → Cloud compute → Functions → keepalive, where "Run now" triggers it by hand. Scheduled functions only run on the published production deploy.
+
+## Oyster lookup
+
+Oysters are added by name; `netlify/functions/oyster-lookup/` (a Netlify Background Function) asks Claude to fill in the rest and writes it to the database. `domain.md` beside it holds the rules Claude follows; edit it to change what gets looked up and how. To try a lookup locally without touching the database (needs `ANTHROPIC_API_KEY` in `.env`):
+
+```bash
+node --env-file=.env scripts/try-lookup.mjs "Barron Point" "Kushi"
+```
+
+Each lookup logs its token use under Netlify → Cloud compute → Functions → oyster-lookup.
 
 ## How offline works
 

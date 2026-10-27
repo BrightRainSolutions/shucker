@@ -5,6 +5,7 @@ import { useAuth } from '../composables/useAuth'
 import { loadOysterStatsCombined, loadOysters, loadPlaces, loadVisitSummaries } from '../lib/data'
 import { relativeDay } from '../lib/dates'
 import { loadingLine } from '../lib/attributes'
+import { lookingUp } from '../lib/lookups'
 import TopBar from '../components/TopBar.vue'
 import PhotoImg from '../components/PhotoImg.vue'
 import OysterMap from '../components/OysterMap.vue'
@@ -41,7 +42,13 @@ onMounted(async () => {
   loading.value = false
 })
 
-const needsPin = computed(() => oysters.value.filter((o) => o.lat == null).length)
+// Same three lists as the To check page: confirm, couldn't find, needs a pin.
+const toCheck = computed(
+  () =>
+    oysters.value.filter(
+      (o) => o.needs_review || ['not_found', 'failed'].includes(o.lookup_status) || (o.lat == null && !lookingUp(o)),
+    ).length,
+)
 const fmt = (v) => (v == null ? '–' : Number(v).toFixed(1))
 </script>
 
@@ -53,8 +60,8 @@ const fmt = (v) => (v == null ? '–' : Number(v).toFixed(1))
         <button :class="{ on: mode === 'list' }" @click="setMode('list')">List</button>
         <button :class="{ on: mode === 'map' }" @click="setMode('map')">Map</button>
       </div>
-      <RouterLink v-if="needsPin" to="/needs-pin" class="needs small">
-        <span class="badge-pin">📍 Needs a pin ({{ needsPin }})</span>
+      <RouterLink v-if="toCheck" to="/needs-pin" class="needs small">
+        <span class="badge-pin">✅ To check ({{ toCheck }})</span>
       </RouterLink>
     </div>
 
