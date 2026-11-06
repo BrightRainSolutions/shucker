@@ -95,6 +95,12 @@ const shortDate = (iso) => formatDate(iso, { month: 'short', day: 'numeric' })
       </div>
 
       <main class="page stack">
+        <div v-if="extraPhotos.length" class="strip">
+          <button v-for="p in extraPhotos" :key="p.id" class="strip-photo" aria-label="View photo" @click="viewer = p">
+            <PhotoImg :photo-id="p.id" />
+          </button>
+        </div>
+
         <textarea
           v-model="notes"
           class="input"
@@ -159,12 +165,6 @@ const shortDate = (iso) => formatDate(iso, { month: 'short', day: 'numeric' })
             </button>
           </div>
         </article>
-
-        <div v-if="extraPhotos.length" class="closeups more">
-          <button v-for="p in extraPhotos" :key="p.id" class="cu" @click="viewer = p">
-            <PhotoImg :photo-id="p.id" />
-          </button>
-        </div>
       </main>
 
       <div v-if="viewer" class="viewer" @click="viewer = null">
@@ -175,6 +175,26 @@ const shortDate = (iso) => formatDate(iso, { month: 'short', day: 'numeric' })
 </template>
 
 <style scoped>
+.strip {
+  display: flex;
+  gap: 8px;
+  margin: 0 -16px;
+  padding: 0 16px 4px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.strip-photo {
+  flex: none;
+  width: 120px;
+  height: 120px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  scroll-snap-align: start;
+}
 .hero {
   position: relative;
   height: min(78vw, 520px);
