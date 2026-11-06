@@ -138,7 +138,7 @@ Unique on `(lower(name), coalesce(grower, ''))`.
 
 ### Views
 - **`oyster_stats`**: per oyster per person: `avg_overall`, `tasting_count`, `last_tasted`, `would_order_again_pct`. Plus a combined row (or a second view `oyster_stats_combined`). Drives map colors and oyster detail.
-- **`visit_summary`**: visit + place name + cover photo thumb path + tasting count + each rater's avg overall for that night. Drives the Oyster Dates list.
+- **`visit_summary`**: visit + place name + cover photo id + tasting count + each rater's avg overall for that night. Drives the Oyster Dates list.
 
 ### Attribute definitions (UI labels)
 Slider endpoints, low to high. Keep the copy playful.
@@ -156,7 +156,7 @@ Slider endpoints, low to high. Keep the copy playful.
 | Size | petite | whopper |
 
 ### Schema management
-- `db/neon_baseline.sql` is the schema. Later changes are new SQL files in `db/`, applied to the `DATABASE_URL` connection.
+- `db/neon_baseline.sql` is the schema. Later changes are new SQL files in `db/`, applied to the `DATABASE_URL` connection. Seed data is in `db/seed.sql`.
 - Never change schema only through the dashboard or MCP. If a change is made that way for debugging, capture it as a migration before committing.
 - The project owner provides the project ref, database password, and a personal access token.
 
@@ -164,7 +164,7 @@ Slider endpoints, low to high. Keep the copy playful.
 
 ## 4. Auth and security
 
-- Neon Auth (managed Better Auth), email + password only (no magic links: iOS home-screen apps don't share Safari's session). Passwords go through the auth API, which hashes them; the console's Add user creates a user without one. **Signups disabled** once everyone exists. The project owner creates each family member's account by hand and inserts their `profiles` row (distinct color per person).
+- Neon Auth (managed Better Auth), email + password only (no magic links: iOS home-screen apps don't share Safari's session). Passwords go through the auth API, which hashes them; the console's Add user creates a user without one. **Email signups and Google sign-in disabled** once everyone exists; Google is on by default in Neon Auth, and any signed-in user can read family data. The project owner creates each family member's account by hand and inserts their `profiles` row (distinct color per person).
 - RLS on every table:
   - `oysters`, `places`, `visits`, `tastings`, `photos`: any authenticated user can select, insert, update. Delete only by `created_by`.
   - `ratings`: any authenticated user can select. Insert, update, delete only where `user_id = auth.uid()`.
@@ -228,7 +228,7 @@ Oyster bars have bad signal. Writes must not fail just because the network is go
 2. Draw to `<canvas>`, scale to 1600px long edge → `canvas.toBlob(cb, 'image/jpeg', 0.8)`.
 3. Same again at 400px for the thumbnail.
 4. Store both blobs in IndexedDB (`idb-keyval`) keyed by photo id, render from local blob immediately.
-5. Upload in background to `photos/{visit_id}/{photo_id}.jpg` and `.../{photo_id}_thumb.jpg`, then insert the `photos` row. Delete local blobs after confirmed upload.
+5. Upload in background: insert the `photos` row, then the bytes into `photo_files`. Keep the local blobs, so viewed photos don't download twice and work offline.
 
 **Write queue:**
 - All inserts and updates go through a small queue persisted in IndexedDB. Client-generated UUIDs mean children (tastings, ratings, photos) can reference a parent before it exists on the server.

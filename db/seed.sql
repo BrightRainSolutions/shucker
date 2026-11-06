@@ -1,5 +1,5 @@
--- Shucker seed data. Not a migration.
--- Apply to the linked project with:  npx supabase db push --include-seed
+-- Shucker seed data: for a fresh database only. Not a migration, and the places
+-- insert isn't protected against duplicates, so don't re-run it.
 -- Oyster coordinates are bay-level approximations (location_approx = true).
 -- Place coordinates were looked up in OpenStreetMap (Nominatim) at build time.
 

@@ -1,5 +1,5 @@
 -- Shucker schema on Neon: the baseline after moving off Supabase.
--- Consolidates the migrations in supabase/migrations, without Supabase Storage
+-- Consolidates the old Supabase migrations (see git history), without Supabase Storage
 -- or the keep-alive table (Neon doesn't pause idle projects). Users live in
 -- neon_auth."user" and auth.uid() comes from the Data API's JWT.
 
