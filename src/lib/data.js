@@ -1,13 +1,13 @@
-// Data layer. Reads go to Supabase when online (and get cached in IndexedDB
+// Data layer. Reads go to Neon when online (and get cached in IndexedDB
 // for offline use); writes go through the queue. Every local write also lands
 // in a "shadow" record so it shows up immediately, online or not, and is
 // merged over server data until its queue items have flushed.
 
 import { reactive } from 'vue'
 import { get, set } from 'idb-keyval'
-import { supabase } from './supabase'
+import { db } from './db'
 import { enqueue, onQueueDone, onRemap, replaceDeep, resolveId, useQueue } from '../composables/useQueue'
-import { processPhoto, saveLocalPhoto, storagePaths } from './photos'
+import { processPhoto, saveLocalPhoto } from './photos'
 import { localToday } from './dates'
 
 const SKEY = 'oc:shadow'
@@ -129,7 +129,7 @@ const mergeById = (serverRows = [], shadowTable = {}, filter = () => true) => {
 
 export async function loadPlaces(opts) {
   await loadShadow()
-  const rows = await cachedQuery('places', () => q(supabase.from('places').select('*, visits(visited_on)')), opts)
+  const rows = await cachedQuery('places', () => q(db.from('places').select('*, visits(visited_on)')), opts)
   return mergeById(rows, shadow.places).map((p) => ({
     ...p,
     lat: p.lat == null ? null : Number(p.lat),
@@ -141,14 +141,14 @@ export async function loadPlaces(opts) {
 
 export async function loadOysters() {
   await loadShadow()
-  const rows = await cachedQuery('oysters', () => q(supabase.from('oysters').select('*').order('name')))
+  const rows = await cachedQuery('oysters', () => q(db.from('oysters').select('*').order('name')))
   return mergeById(rows, shadow.oysters)
     .map((o) => ({ ...o, lat: o.lat == null ? null : Number(o.lat), lng: o.lng == null ? null : Number(o.lng) }))
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export async function loadOysterStatsCombined() {
-  const rows = await cachedQuery('oyster_stats_combined', () => q(supabase.from('oyster_stats_combined').select('*')))
+  const rows = await cachedQuery('oyster_stats_combined', () => q(db.from('oyster_stats_combined').select('*')))
   return rows || []
 }
 
@@ -157,7 +157,7 @@ export async function loadVisitSummaries(opts) {
   const placesP = loadPlaces(opts)
   const rows =
     (await cachedQuery('visit_summary', () =>
-      q(supabase.from('visit_summary').select('*').order('visited_on', { ascending: false }).order('created_at', { ascending: false })),
+      q(db.from('visit_summary').select('*').order('visited_on', { ascending: false }).order('created_at', { ascending: false })),
       opts,
     )) || []
   const known = new Map(rows.map((r) => [r.id, r]))
@@ -212,9 +212,9 @@ export async function getVisitBundle(rawId) {
   const data =
     (await cachedQuery(`visit:${id}`, async () => {
       const [visit, tastings, photos] = await Promise.all([
-        q(supabase.from('visits').select('*, place:places(*)').eq('id', id).maybeSingle()),
-        q(supabase.from('tastings').select('*, oyster:oysters(*), ratings(*)').eq('visit_id', id).order('created_at')),
-        q(supabase.from('photos').select('*').eq('visit_id', id).order('created_at')),
+        q(db.from('visits').select('*, place:places(*)').eq('id', id).maybeSingle()),
+        q(db.from('tastings').select('*, oyster:oysters(*), ratings(*)').eq('visit_id', id).order('created_at')),
+        q(db.from('photos').select('*').eq('visit_id', id).order('created_at')),
       ])
       return { visit, tastings, photos }
     })) || {}
@@ -245,13 +245,13 @@ export async function getOysterBundle(rawId) {
   const data =
     (await cachedQuery(`oyster:${id}`, async () => {
       const [oyster, stats, tastings] = await Promise.all([
-        q(supabase.from('oysters').select('*').eq('id', id).maybeSingle()),
-        q(supabase.from('oyster_stats').select('*').eq('oyster_id', id)),
+        q(db.from('oysters').select('*').eq('id', id).maybeSingle()),
+        q(db.from('oyster_stats').select('*').eq('oyster_id', id)),
         q(
-          supabase
+          db
             .from('tastings')
             .select(
-              '*, ratings(*), photos(id, thumb_path), visit:visits(id, visited_on, cover_photo_id, place:places(name, city), cover:photos!visits_cover_photo_fk(thumb_path))',
+              '*, ratings(*), photos(id), visit:visits(id, visited_on, cover_photo_id, place:places(name, city))',
             )
             .eq('oyster_id', id),
         ),
@@ -280,7 +280,7 @@ export async function loadMyRatings(userId) {
   const rows =
     (await cachedQuery(`myratings:${userId}`, () =>
       q(
-        supabase
+        db
           .from('ratings')
           .select('*, tasting:tastings(oyster_id, visit_id, visit:visits(visited_on))')
           .eq('user_id', userId),
@@ -492,7 +492,7 @@ export async function addPhoto(file, { visitId, tastingId = null, setCover = fal
   const id = uuid()
   const blobs = await processPhoto(file)
   await saveLocalPhoto(id, blobs)
-  putShadow('photos', { id, visit_id: visitId, tasting_id: tastingId, ...storagePaths(visitId, id), created_at: now() })
+  putShadow('photos', { id, visit_id: visitId, tasting_id: tastingId, created_at: now() })
   const shadows = [{ table: 'photos', id }]
   if (setCover) {
     putShadow('visits', { id: visitId, cover_photo_id: id })

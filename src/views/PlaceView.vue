@@ -36,7 +36,7 @@ const title = computed(() => place.value?.name || '')
       <MiniMap v-if="place.lat != null" :lat="place.lat" :lng="place.lng" :zoom="15" height="160px" color="#0b3a5b" />
       <h3>{{ visits.length }} Oyster Date{{ visits.length === 1 ? '' : 's' }} here</h3>
       <RouterLink v-for="v in visits" :key="v.id" :to="`/visit/${v.id}`" class="row card item">
-        <div class="th"><PhotoImg :photo-id="v.cover_photo_id" :path="v.cover_thumb_path" /></div>
+        <div class="th"><PhotoImg :photo-id="v.cover_photo_id" /></div>
         <div class="spacer">
           <strong>{{ relativeDay(v.visited_on) }}</strong>
           <div class="small muted">{{ v.tasting_count }} oysters</div>

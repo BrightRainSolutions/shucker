@@ -8,8 +8,8 @@
 
 import { ref, reactive, computed } from 'vue'
 import { get, set } from 'idb-keyval'
-import { supabase } from '../lib/supabase'
-import { getLocalPhoto, deleteLocalPhoto, storagePaths } from '../lib/photos'
+import { db } from '../lib/db'
+import { blobToHex, getLocalPhoto } from '../lib/photos'
 
 const QKEY = 'oc:queue'
 const AKEY = 'oc:aliases'
@@ -133,22 +133,22 @@ const q = async (builder) => {
 async function exec(it) {
   switch (it.op) {
     case 'rpc': {
-      const data = await q(supabase.rpc(it.fn, it.args))
+      const data = await q(db.rpc(it.fn, it.args))
       if (it.localId && data && data !== it.localId) await remap(it.localId, data)
       return data
     }
     case 'insert':
       // upsert-ignore keeps retries idempotent
-      await q(supabase.from(it.table).upsert(it.row, { onConflict: 'id', ignoreDuplicates: true }))
+      await q(db.from(it.table).upsert(it.row, { onConflict: 'id', ignoreDuplicates: true }))
       return it.row.id
     case 'upsert':
-      await q(supabase.from(it.table).upsert(it.row, { onConflict: it.onConflict }))
+      await q(db.from(it.table).upsert(it.row, { onConflict: it.onConflict }))
       return true
     case 'update':
-      await q(supabase.from(it.table).update(it.patch).eq('id', it.id))
+      await q(db.from(it.table).update(it.patch).eq('id', it.id))
       return true
     case 'delete':
-      await q(supabase.from(it.table).delete().eq('id', it.id))
+      await q(db.from(it.table).delete().eq('id', it.id))
       return true
     case 'photo':
       return execPhoto(it)
@@ -158,25 +158,18 @@ async function exec(it) {
 }
 
 async function execPhoto({ photoId, visitId, tastingId, setCover }) {
-  const paths = storagePaths(visitId, photoId)
   const [full, thumb] = await Promise.all([getLocalPhoto(photoId, 'full'), getLocalPhoto(photoId, 'thumb')])
-  const bucket = supabase.storage.from('photos')
-  const opts = { contentType: 'image/jpeg', upsert: true, cacheControl: '31536000' }
-  if (full) {
-    const { error } = await bucket.upload(paths.storage_path, full, opts)
-    if (error) throw error
-  }
-  if (thumb) {
-    const { error } = await bucket.upload(paths.thumb_path, thumb, opts)
-    if (error) throw error
-  }
   await q(
-    supabase
-      .from('photos')
-      .upsert({ id: photoId, visit_id: visitId, tasting_id: tastingId || null, ...paths }, { onConflict: 'id', ignoreDuplicates: true }),
+    db.from('photos').upsert({ id: photoId, visit_id: visitId, tasting_id: tastingId || null }, { onConflict: 'id', ignoreDuplicates: true }),
   )
-  if (setCover) await q(supabase.from('visits').update({ cover_photo_id: photoId }).eq('id', visitId))
-  await deleteLocalPhoto(photoId)
+  if (full && thumb) {
+    await q(
+      db
+        .from('photo_files')
+        .upsert({ photo_id: photoId, full_jpeg: await blobToHex(full), thumb_jpeg: await blobToHex(thumb) }, { onConflict: 'photo_id' }),
+    )
+  }
+  if (setCover) await q(db.from('visits').update({ cover_photo_id: photoId }).eq('id', visitId))
   return photoId
 }
 
@@ -189,7 +182,7 @@ function isTransient(e) {
   if (!navigator.onLine) return true
   const msg = errMessage(e)
   if (/failed to fetch|load failed|network|timeout|fetch|aborted|offline/i.test(msg) && !e?.code) return true
-  if (e?.code === 'PGRST301' || e?.code === 'PGRST303' || /jwt/i.test(msg)) return true
+  if (e?.code === 'PGRST301' || e?.code === 'PGRST303' || /jwt|authentication required/i.test(msg)) return true
   const status = Number(e?.status || e?.statusCode)
   return status === 0 || status === 401 || status === 408 || status === 429 || status >= 500
 }

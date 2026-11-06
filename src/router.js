@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { initAuth, useAuth } from './composables/useAuth'
-import { configured } from './lib/supabase'
+import { configured } from './lib/db'
 
 const routes = [
   { path: '/', name: 'home', component: () => import('./views/LandingView.vue') },

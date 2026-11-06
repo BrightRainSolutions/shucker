@@ -12,14 +12,14 @@ Family members only, accounts added by hand. Everyone sees all visits. No public
 |---|---|---|
 | Frontend | Vue 3 + Vite, Vue Router | Composition API, `<script setup>`. No Pinia or Vuex: shared state (auth session, profiles, offline queue status) lives in plain composables with module-level `ref`/`reactive` (e.g. `useAuth()`, `useQueue()`). |
 | PWA | `vite-plugin-pwa` (Workbox) | Installable, app shell cached, offline queue (see 7) |
-| Backend | Supabase (free tier) | Postgres + PostGIS, Auth, Storage, `@supabase/supabase-js` v2 client. No custom server code. |
+| Backend | Neon | Postgres + PostGIS, Neon Auth, Data API, through `@neon/neon-js/supabase` (Supabase-style client). Photos live in Postgres. Moved off Supabase because its free tier paused the project despite a daily write. |
 | Map | MapLibre GL JS | Basemap: OpenFreeMap Liberty style (`https://tiles.openfreemap.org/styles/liberty`). Do NOT use the default OSM raster tiles. |
 | Geocoding | Nominatim (OSM) | Search-to-fly only. Max 1 request/sec, debounce input, show OSM attribution. |
 | Local storage | `idb-keyval` | Offline queue for photos and pending writes |
 | Hosting | Netlify (static) | SPA redirect: `/* /index.html 200` |
 | Repo | `BrightRainSolutions/shucker` | Public (Netlify's free plan won't build private org repos). No secrets in the repo. |
 
-Environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`. The anon key is safe in the client because RLS does the gating. `ANTHROPIC_API_KEY` (Netlify only, secret, never `VITE_`-prefixed) for the oyster lookup (see 6).
+Environment variables: `VITE_NEON_AUTH_URL`, `VITE_NEON_DATA_API_URL`. Neither is a secret; a verified token and RLS do the gating. `ANTHROPIC_API_KEY` (Netlify only, secret, never `VITE_`-prefixed) for the oyster lookup (see 6).
 
 ---
 
@@ -133,8 +133,6 @@ Unique on `(lower(name), coalesce(grower, ''))`.
 | id | uuid PK | |
 | visit_id | uuid → visits | not null, `on delete cascade` |
 | tasting_id | uuid → tastings | nullable; set when the photo is a close-up of one oyster |
-| storage_path | text | full image |
-| thumb_path | text | ~400px thumbnail |
 | taken_by | uuid → profiles | |
 | created_at | timestamptz | |
 
@@ -158,20 +156,19 @@ Slider endpoints, low to high. Keep the copy playful.
 | Size | petite | whopper |
 
 ### Schema management
-- Supabase CLI migrations are the source of truth: SQL files in `supabase/migrations/`, applied with `supabase db push` against the linked project. Seed data in `supabase/seed.sql`.
+- `db/neon_baseline.sql` is the schema. Later changes are new SQL files in `db/`, applied to the `DATABASE_URL` connection.
 - Never change schema only through the dashboard or MCP. If a change is made that way for debugging, capture it as a migration before committing.
-- The Supabase MCP server, if configured, runs read-only and scoped to this project; use it for inspection and debugging.
 - The project owner provides the project ref, database password, and a personal access token.
 
 ---
 
 ## 4. Auth and security
 
-- Supabase Auth, email + password only (no magic links: Supabase's built-in mailer only emails org members, and iOS home-screen apps don't share Safari's session). **Signups disabled** in the dashboard. The project owner creates each family member's account by hand and inserts their `profiles` row (distinct color per person).
+- Neon Auth (managed Better Auth), email + password only (no magic links: iOS home-screen apps don't share Safari's session). Passwords go through the auth API, which hashes them; the console's Add user creates a user without one. **Signups disabled** once everyone exists. The project owner creates each family member's account by hand and inserts their `profiles` row (distinct color per person).
 - RLS on every table:
   - `oysters`, `places`, `visits`, `tastings`, `photos`: any authenticated user can select, insert, update. Delete only by `created_by`.
   - `ratings`: any authenticated user can select. Insert, update, delete only where `user_id = auth.uid()`.
-- Storage bucket `photos`: **private**. Authenticated users can read and write. Display via `createSignedUrl` (cache signed URLs in memory for their lifetime). Do not rely on Supabase image transformations (paid tier only); thumbnails are generated client-side.
+- `photo_files` holds image bytes (`full_jpeg`, `thumb_jpeg`) apart from `photos`, so ordinary queries never pull them. Authenticated users can read and write; rows go with their photo. Thumbnails are generated client-side, and a phone keeps each image it has seen so it isn't downloaded twice.
 
 ---
 
@@ -210,7 +207,7 @@ Full-screen MapLibre view with a draggable marker. Tap to drop, drag to adjust. 
 
 ## 6. Oyster lookup and origin locations
 
-- A new oyster is saved with its name only and `lookup_status = 'pending'`. Whenever an oyster reaches the server, the phone POSTs its id to `netlify/functions/oyster-lookup`, a Netlify Background Function (202 at once, runs up to 15 min), with the signed-in person's Supabase token. Every database call in the function runs as that person, so RLS applies.
+- A new oyster is saved with its name only and `lookup_status = 'pending'`. Whenever an oyster reaches the server, the phone POSTs its id to `netlify/functions/oyster-lookup`, a Netlify Background Function (202 at once, runs up to 15 min), with the signed-in person's Neon Auth token. Every database call in the function runs as that person, so RLS applies.
 - The function claims the oyster (`claim_oyster_lookup`: only one lookup at a time; a run stuck for 5 minutes is retried), then asks Claude (`claude-opus-5-5`) with web search: first limited to oysterater.com, then the open web if that finds nothing trustworthy. Claude ends by calling a strict `record_oyster` tool, so the answer always has the same shape. The rules it follows are in `netlify/functions/oyster-lookup/domain.md`.
 - `finish_oyster_lookup` fills **only empty fields** (country excepted, since it defaults to USA), fixes the name's case when it only differs in case, sets a pin only if there is none (`location_approx` stays true), stores the Shucker fact with its source, and flags the oyster `needs_review`. Low-confidence answers aren't saved. Names that cover many farms (Kumamoto) get only what's true of all of them.
 - Failed lookups are not retried automatically, so a persistent error can't keep spending; the oyster page has **Try again**. Facts and links only: no descriptions or reviews are copied from any source.
@@ -250,9 +247,7 @@ Oyster bars have bad signal. Writes must not fail just because the network is go
 
 ## 9. Keep-alive
 
-Supabase free projects pause after about a week of low activity. Use a Netlify Scheduled Function (`netlify/functions/keepalive.mjs`), not a GitHub Action: GitHub disables scheduled workflows on public repos after 60 days without commits, and this needs zero babysitting.
-- Cron daily (pick an odd minute, not :00).
-- Call `rpc/keepalive_ping` via the REST endpoint with the anon key, reusing the site's `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` env vars. It stamps `keepalive.pinged_at`: a write, because a plain read did not count as activity. anon may execute only that function, so the anon key can't read or change real data.
+None needed: Neon doesn't pause idle projects. It sleeps and wakes on the next query.
 
 ---
 
@@ -279,13 +274,13 @@ This should not look like a default CRUD app. It needs pop and personality:
 ## 12. Build order
 
 0. Init the local git repo, create the private repo `BrightRainSolutions/shucker` on GitHub (under the org, not a personal account, e.g. `gh repo create BrightRainSolutions/shucker --private --source=. --push`), and push.
-1. Supabase project, schema migration, RLS, storage bucket, keepalive table. Seed file.
+1. Neon project, schema, RLS. Seed file.
 2. Vue scaffold, PWA config, auth, landing.
 3. Add Oyster Date flow online-only, including photo resize and upload.
 4. See Oyster Dates list, visit detail, oyster detail.
 5. Map: list/map toggle, both layers, pin picker with Nominatim.
 6. Offline queue and conflict remapping.
-7. Netlify deploy (with the keep-alive scheduled function), test install on family members' phones.
+7. Netlify deploy, test install on family members' phones.
 
 ## 13. Acceptance checks
 
@@ -294,4 +289,3 @@ This should not look like a default CRUD app. It needs pop and personality:
 - Photo taken in airplane mode appears immediately and uploads after reconnecting.
 - Ratings from one user cannot be edited by any other (verify via RLS, not just UI).
 - Map shows origins colored by rating and both seeded places.
-- Keep-alive function runs green in Netlify's function logs.

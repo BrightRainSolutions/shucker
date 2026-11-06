@@ -38,7 +38,6 @@ watch(
 )
 
 const visit = computed(() => bundle.value?.visit)
-const coverPath = computed(() => bundle.value?.photos.find((p) => p.id === visit.value?.cover_photo_id)?.storage_path)
 const extraPhotos = computed(() =>
   (bundle.value?.photos || []).filter((p) => !p.tasting_id && p.id !== visit.value?.cover_photo_id),
 )
@@ -85,7 +84,7 @@ const shortDate = (iso) => formatDate(iso, { month: 'short', day: 'numeric' })
 
     <template v-else>
       <div class="hero">
-        <PhotoImg :photo-id="visit.cover_photo_id" :path="coverPath" kind="full" :alt="visit.place?.name" />
+        <PhotoImg :photo-id="visit.cover_photo_id" kind="full" :alt="visit.place?.name" />
         <div class="hero-bar"><TopBar back="/dates" /></div>
         <div class="hero-text">
           <div class="when">{{ relativeDay(visit.visited_on) }}</div>
@@ -96,6 +95,12 @@ const shortDate = (iso) => formatDate(iso, { month: 'short', day: 'numeric' })
       </div>
 
       <main class="page stack">
+        <div v-if="extraPhotos.length" class="strip">
+          <button v-for="p in extraPhotos" :key="p.id" class="strip-photo" aria-label="View photo" @click="viewer = p">
+            <PhotoImg :photo-id="p.id" />
+          </button>
+        </div>
+
         <textarea
           v-model="notes"
           class="input"
@@ -156,26 +161,40 @@ const shortDate = (iso) => formatDate(iso, { month: 'short', day: 'numeric' })
 
           <div v-if="closeups(t).length" class="closeups">
             <button v-for="p in closeups(t)" :key="p.id" class="cu" @click="viewer = p">
-              <PhotoImg :photo-id="p.id" :path="p.thumb_path" />
+              <PhotoImg :photo-id="p.id" />
             </button>
           </div>
         </article>
-
-        <div v-if="extraPhotos.length" class="closeups more">
-          <button v-for="p in extraPhotos" :key="p.id" class="cu" @click="viewer = p">
-            <PhotoImg :photo-id="p.id" :path="p.thumb_path" />
-          </button>
-        </div>
       </main>
 
       <div v-if="viewer" class="viewer" @click="viewer = null">
-        <PhotoImg :photo-id="viewer.id" :path="viewer.storage_path" kind="full" />
+        <PhotoImg :photo-id="viewer.id" kind="full" />
       </div>
     </template>
   </div>
 </template>
 
 <style scoped>
+.strip {
+  display: flex;
+  gap: 8px;
+  margin: 0 -16px;
+  padding: 0 16px 4px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.strip-photo {
+  flex: none;
+  width: 120px;
+  height: 120px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  scroll-snap-align: start;
+}
 .hero {
   position: relative;
   height: min(78vw, 520px);

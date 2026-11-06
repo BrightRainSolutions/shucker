@@ -308,7 +308,6 @@ function next() {
         <div v-if="bundle?.visit?.cover_photo_id" class="cover">
           <PhotoImg
             :photo-id="bundle.visit.cover_photo_id"
-            :path="bundle.photos.find((p) => p.id === bundle.visit.cover_photo_id)?.storage_path"
             kind="full"
           />
         </div>

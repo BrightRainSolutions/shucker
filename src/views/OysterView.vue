@@ -93,7 +93,7 @@ async function lookAgain() {
   watchLookup.kick()
 }
 
-const thumbOf = (t) => t.photos?.[0]?.thumb_path || t.visit?.cover?.thumb_path || null
+const thumbOf = (t) => t.photos?.[0]?.id || t.visit?.cover_photo_id || null
 </script>
 
 <template>
@@ -168,7 +168,7 @@ const thumbOf = (t) => t.photos?.[0]?.thumb_path || t.visit?.cover?.thumb_path |
         <p v-if="!bundle.tastings.length" class="muted">Never! Fix that.</p>
         <div v-for="t in bundle.tastings" :key="t.id" class="hist card">
           <RouterLink :to="`/visit/${t.visit.id}`" class="hlink">
-            <div class="th"><PhotoImg :path="thumbOf(t)" /></div>
+            <div class="th"><PhotoImg :photo-id="thumbOf(t)" /></div>
             <div class="hmeta">
               <strong>{{ t.visit.place?.name || 'Home' }}</strong>
               <div class="small muted">{{ formatDate(t.visit.visited_on) }}</div>

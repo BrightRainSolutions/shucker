@@ -4,7 +4,7 @@
 // when online, or once the queue flushes after being offline. Claiming happens
 // in the database, so two phones asking for the same oyster is harmless.
 
-import { supabase } from './supabase'
+import { db } from './db'
 import { onQueueDone } from '../composables/useQueue'
 
 const ASK_AGAIN_MS = 2 * 60_000 // don't re-ask while a lookup is likely running
@@ -21,11 +21,11 @@ export function sweepLookups() {
 
 async function sweep() {
   if (!navigator.onLine) return
-  const { data: auth } = await supabase.auth.getSession()
+  const { data: auth } = await db.auth.getSession()
   const token = auth.session?.access_token
   if (!token) return
   const stale = new Date(Date.now() - STALE_RUN_MS).toISOString()
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('oysters')
     .select('id')
     .or(`lookup_status.eq.pending,and(lookup_status.eq.running,lookup_at.lt.${stale})`)
@@ -35,10 +35,10 @@ async function sweep() {
 
 // Failed lookups aren't retried on their own; this is the "Try again" button.
 export async function retryLookup(id) {
-  const { data: auth } = await supabase.auth.getSession()
+  const { data: auth } = await db.auth.getSession()
   const token = auth.session?.access_token
   if (!token) return
-  await supabase.from('oysters').update({ lookup_status: 'pending' }).eq('id', id)
+  await db.from('oysters').update({ lookup_status: 'pending' }).eq('id', id)
   asked.delete(id)
   ask(id, token)
 }

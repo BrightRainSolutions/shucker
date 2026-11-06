@@ -2,56 +2,31 @@
 
 A private family PWA to log Oyster Dates, rate each oyster separately, keep The Photo, and map where the oysters came from. See [SPEC.md](SPEC.md).
 
-Vue 3 + Vite, Supabase (Postgres/PostGIS, Auth, Storage), MapLibre on OpenFreeMap, offline write queue in IndexedDB.
+Vue 3 + Vite, Neon (Postgres/PostGIS, Neon Auth, Data API), MapLibre on OpenFreeMap, offline write queue in IndexedDB.
 
 ## Local dev
 
 ```bash
 npm install
-cp .env.example .env   # fill in VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+cp .env.example .env   # fill in the Neon URLs
 npm run dev
 ```
 
-## Supabase setup (one time)
+## Neon setup (one time)
 
-1. Create a free project. Note the project ref and database password.
-2. Link and push the schema plus the seed data:
-   ```bash
-   npx supabase login            # personal access token
-   npx supabase link --project-ref <ref>
-   npx supabase db push --include-seed
-   ```
-3. Auth → Providers → Email: turn **off** "Allow new users to sign up".
-4. Auth → Users → "Add user" for each family member (auto-confirm). Signups stay off; adding someone later is the same two steps. Then in the SQL editor, one row per person with a distinct color:
-   ```sql
-   insert into public.profiles (id, display_name, color) values
-     ('<user-uuid>',       '<Name>', '#ff6b5a'),
-     ('<user-uuid>',       '<Name>', '#2bb3a3'),
-     ...;
-   ```
-   Colors that read well together: `#ff6b5a` `#2bb3a3` `#f2a91e` `#7a5cff` `#3f7a52` `#e05297` `#1d74a8` `#a8642a`.
+1. Create a Neon project with Auth, then enable the Data API with **Use Neon Auth** on and **Grant public schema access** off.
+2. Apply `db/neon_baseline.sql` to the `DATABASE_URL` connection.
+3. Add the site's domains under Neon Auth's trusted origins.
+4. Create logins by calling the auth API, not with the console's Add user, which sets no password: `node --env-file=.env scripts/create-neon-users.mjs`. Then turn sign-ups off.
+5. Add one `profiles` row per person, using their `neon_auth."user"` id and a distinct color.
 
-Schema changes go in `supabase/migrations/` and are applied with `npx supabase db push`. Never change the schema only through the dashboard.
+Schema changes are new SQL files in `db/`. Never change the schema only through the console.
 
 ## Deploy (Netlify)
 
-Connect the repo, build `npm run build`, publish `dist` (already in `netlify.toml`, including the SPA redirect). Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Netlify's environment variables, with scopes including Builds and Functions (the default), since the keep-alive and oyster-lookup functions read them too. Also set `ANTHROPIC_API_KEY` (secret; Production context is enough) for the oyster lookup. Never give it a `VITE_` prefix: those are compiled into the app.
+Connect the repo, build `npm run build`, publish `dist` (already in `netlify.toml`, including the SPA redirect). Set `VITE_NEON_AUTH_URL` and `VITE_NEON_DATA_API_URL` in Netlify's environment variables, with scopes including Builds and Functions (the default), since the oyster-lookup function reads them too. Also set `ANTHROPIC_API_KEY` (secret; Production context is enough) for the oyster lookup. Never give it a `VITE_` prefix: those are compiled into the app.
 
 On each iPhone: open the site in Safari → Share → Add to Home Screen.
-
-## Keep-alive
-
-Free Supabase projects pause after about a week of quiet. `netlify/functions/keepalive.mjs` is a Netlify Scheduled Function that calls `keepalive_ping()` once a day, a tiny write that stamps `keepalive.pinged_at` (a read alone did not count as activity). It reuses the site's `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, so there's nothing else to configure. Check it under Netlify → Cloud compute → Functions → keepalive, where "Run now" triggers it by hand. Scheduled functions only run on the published production deploy.
-
-## Oyster lookup
-
-Oysters are added by name; `netlify/functions/oyster-lookup/` (a Netlify Background Function) asks Claude to fill in the rest and writes it to the database. `domain.md` beside it holds the rules Claude follows; edit it to change what gets looked up and how. To try a lookup locally without touching the database (needs `ANTHROPIC_API_KEY` in `.env`):
-
-```bash
-node --env-file=.env scripts/try-lookup.mjs "Barron Point" "Kushi"
-```
-
-Each lookup logs its token use under Netlify → Cloud compute → Functions → oyster-lookup.
 
 ## How offline works
 
@@ -59,7 +34,7 @@ Each lookup logs its token use under Netlify → Cloud compute → Functions →
 - Ids are generated on the phone, so children can point at parents that only exist locally.
 - Visits, tastings and new oysters are created via `find_or_create_*` RPCs. If the server already has one (the other phone got there first), the server id comes back and the local id is rewritten on every queued item.
 - Local writes also live as "shadow" records (`src/lib/data.js`) merged over server data until they sync, so everything shows up immediately.
-- Photos are resized on the phone (1600px + 400px thumb), kept in IndexedDB, shown from the local blob, then uploaded to the private `photos` bucket.
+- Photos are resized on the phone (1600px + 400px thumb), kept in IndexedDB, shown from the local blob, then uploaded to the `photo_files` table. The phone keeps its copy.
 
 ## Icons
 

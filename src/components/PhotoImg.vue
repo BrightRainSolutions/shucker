@@ -1,13 +1,11 @@
 <script setup>
-// Shows a photo from the local IndexedDB blob if we still have it (instant,
-// offline), otherwise from a signed URL on the private bucket.
+// Shows a photo from this device if we have it (instant, offline), otherwise
+// from the database. Without signal, a full photo falls back to its thumbnail.
 import { ref, watch } from 'vue'
-import { localPhotoUrl } from '../lib/photos'
-import { signedUrl } from '../lib/signedUrls'
+import { localPhotoUrl, photoUrl } from '../lib/photos'
 
 const props = defineProps({
   photoId: { type: String, default: null },
-  path: { type: String, default: null },
   kind: { type: String, default: 'thumb' }, // 'thumb' | 'full'
   alt: { type: String, default: '' },
 })
@@ -16,13 +14,12 @@ const src = ref(null)
 const failed = ref(false)
 
 watch(
-  () => [props.photoId, props.path, props.kind],
+  () => [props.photoId, props.kind],
   async () => {
     failed.value = false
     let url = null
-    if (props.photoId) url = await localPhotoUrl(props.photoId, props.kind)
+    if (props.photoId) url = await photoUrl(props.photoId, props.kind).catch(() => null)
     if (!url && props.photoId && props.kind === 'full') url = await localPhotoUrl(props.photoId, 'thumb')
-    if (!url && props.path) url = await signedUrl(props.path)
     src.value = url
   },
   { immediate: true },
