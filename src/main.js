@@ -14,7 +14,7 @@ registerSW({ immediate: true })
 initAuth().then(() => {
   const { session } = useAuth()
   loadShadow()
-  startQueue({ canFlush: () => !!session.value })
+  startQueue({ canFlush: () => !!session.value?.access_token })
   if (session.value) sweepLookups()
 })
 

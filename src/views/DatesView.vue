@@ -76,7 +76,7 @@ const fmt = (v) => (v == null ? '–' : Number(v).toFixed(1))
 
       <RouterLink v-for="v in visits" :key="v.id" :to="`/visit/${v.id}`" class="vcard">
         <div class="ph">
-          <PhotoImg :photo-id="v.cover_photo_id" :path="v.cover_thumb_path" :alt="v.place_name || 'Home'" />
+          <PhotoImg :photo-id="v.cover_photo_id" :alt="v.place_name || 'Home'" />
           <span v-if="v._local" class="local small">on this phone</span>
         </div>
         <div class="meta">

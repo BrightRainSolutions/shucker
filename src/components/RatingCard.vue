@@ -162,7 +162,7 @@ async function onPhoto(file) {
       <CameraButton small label="Close-up" :save="onPhoto" />
       <div class="thumbs">
         <div v-for="p in photos" :key="p.id" class="thumb">
-          <PhotoImg :photo-id="p.id" :path="p.thumb_path" />
+          <PhotoImg :photo-id="p.id" />
         </div>
       </div>
     </div>

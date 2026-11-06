@@ -1,4 +1,5 @@
-import { get, set, del } from 'idb-keyval'
+import { get, set } from 'idb-keyval'
+import { db } from './db'
 
 const FULL = 1600
 const THUMB = 400
@@ -55,10 +56,8 @@ export async function processPhoto(file) {
 const key = (id, kind) => `oc:photo:${id}:${kind}`
 export const saveLocalPhoto = (id, { full, thumb }) => Promise.all([set(key(id, 'full'), full), set(key(id, 'thumb'), thumb)])
 export const getLocalPhoto = (id, kind) => get(key(id, kind))
-export const deleteLocalPhoto = (id) => Promise.all([del(key(id, 'full')), del(key(id, 'thumb'))])
 
-// Object URLs for local blobs, kept for the life of the page so an <img>
-// already showing one keeps working after the blob is deleted post-upload.
+// Object URLs for local blobs, kept for the life of the page.
 const objectUrls = new Map()
 export async function localPhotoUrl(id, kind) {
   const k = key(id, kind)
@@ -70,7 +69,41 @@ export async function localPhotoUrl(id, kind) {
   return url
 }
 
-export const storagePaths = (visitId, photoId) => ({
-  storage_path: `${visitId}/${photoId}.jpg`,
-  thumb_path: `${visitId}/${photoId}_thumb.jpg`,
-})
+// Postgres bytea travels through the Data API as "\\x" + hex.
+export async function blobToHex(blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  let hex = '\\x'
+  for (const b of bytes) hex += b.toString(16).padStart(2, '0')
+  return hex
+}
+
+function hexToBlob(hex) {
+  const bytes = new Uint8Array((hex.length - 2) / 2)
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2 + 2, 2), 16)
+  return new Blob([bytes], { type: 'image/jpeg' })
+}
+
+// A photo from this device if we have it, otherwise from the database, keeping
+// a copy here so it isn't downloaded again. Kept copies also save on transfer.
+const fetching = new Map()
+export async function photoUrl(id, kind) {
+  const local = await localPhotoUrl(id, kind)
+  if (local) return local
+  const k = key(id, kind)
+  if (!fetching.has(k)) {
+    fetching.set(k, downloadPhoto(id, kind).finally(() => fetching.delete(k)))
+  }
+  return fetching.get(k)
+}
+
+async function downloadPhoto(id, kind) {
+  const column = `${kind}_jpeg`
+  const { data, error } = await db.from('photo_files').select(column).eq('photo_id', id).maybeSingle()
+  if (error || !data?.[column]) return null
+  const blob = hexToBlob(data[column])
+  const k = key(id, kind)
+  await set(k, blob).catch(() => {}) // showing it matters more than keeping it
+  const url = URL.createObjectURL(blob)
+  objectUrls.set(k, url)
+  return url
+}

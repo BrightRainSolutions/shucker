@@ -38,7 +38,6 @@ watch(
 )
 
 const visit = computed(() => bundle.value?.visit)
-const coverPath = computed(() => bundle.value?.photos.find((p) => p.id === visit.value?.cover_photo_id)?.storage_path)
 const extraPhotos = computed(() =>
   (bundle.value?.photos || []).filter((p) => !p.tasting_id && p.id !== visit.value?.cover_photo_id),
 )
@@ -85,7 +84,7 @@ const shortDate = (iso) => formatDate(iso, { month: 'short', day: 'numeric' })
 
     <template v-else>
       <div class="hero">
-        <PhotoImg :photo-id="visit.cover_photo_id" :path="coverPath" kind="full" :alt="visit.place?.name" />
+        <PhotoImg :photo-id="visit.cover_photo_id" kind="full" :alt="visit.place?.name" />
         <div class="hero-bar"><TopBar back="/dates" /></div>
         <div class="hero-text">
           <div class="when">{{ relativeDay(visit.visited_on) }}</div>
@@ -156,20 +155,20 @@ const shortDate = (iso) => formatDate(iso, { month: 'short', day: 'numeric' })
 
           <div v-if="closeups(t).length" class="closeups">
             <button v-for="p in closeups(t)" :key="p.id" class="cu" @click="viewer = p">
-              <PhotoImg :photo-id="p.id" :path="p.thumb_path" />
+              <PhotoImg :photo-id="p.id" />
             </button>
           </div>
         </article>
 
         <div v-if="extraPhotos.length" class="closeups more">
           <button v-for="p in extraPhotos" :key="p.id" class="cu" @click="viewer = p">
-            <PhotoImg :photo-id="p.id" :path="p.thumb_path" />
+            <PhotoImg :photo-id="p.id" />
           </button>
         </div>
       </main>
 
       <div v-if="viewer" class="viewer" @click="viewer = null">
-        <PhotoImg :photo-id="viewer.id" :path="viewer.storage_path" kind="full" />
+        <PhotoImg :photo-id="viewer.id" kind="full" />
       </div>
     </template>
   </div>
