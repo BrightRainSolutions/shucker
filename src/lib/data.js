@@ -269,6 +269,68 @@ export async function getOysterBundle(rawId) {
 }
 
 /**
+ * Every oyster the family has had, for "have I had this before, and did I
+ * like it?". Each comes with when it was last had and, per person, the
+ * average Overall across the nights they scored it and how many nights that
+ * is. Ratings without an Overall don't count. Includes anything still
+ * waiting to sync. Most recently had first.
+ */
+export async function loadOysterList() {
+  await loadShadow()
+  const [rows, oysters, summaries] = await Promise.all([
+    cachedQuery('oyster_list', () =>
+      q(db.from('tastings').select('id, oyster_id, visit:visits(visited_on), ratings(user_id, overall)')),
+    ),
+    loadOysters(),
+    loadVisitSummaries(),
+  ])
+  const visitDate = new Map(summaries.map((v) => [v.id, v.visited_on]))
+
+  // tasting id -> { oyster_id, visited_on, ratings: Map(user_id -> overall) }
+  const tastings = new Map()
+  for (const t of rows || []) {
+    tastings.set(t.id, {
+      oyster_id: t.oyster_id,
+      visited_on: t.visit?.visited_on ?? null,
+      ratings: new Map((t.ratings || []).map((r) => [r.user_id, r.overall])),
+    })
+  }
+  for (const t of Object.values(shadow.tastings)) {
+    if (tastings.has(t.id) || !t.oyster_id) continue
+    tastings.set(t.id, { oyster_id: t.oyster_id, visited_on: visitDate.get(t.visit_id) ?? null, ratings: new Map() })
+  }
+  for (const r of Object.values(shadow.ratings)) {
+    const t = tastings.get(r.tasting_id)
+    if (t && 'overall' in r) t.ratings.set(r.user_id, r.overall)
+  }
+
+  const byOyster = new Map()
+  for (const t of tastings.values()) {
+    const entry = byOyster.get(t.oyster_id) || { lastHad: '', scores: new Map() }
+    if (t.visited_on && t.visited_on > entry.lastHad) entry.lastHad = t.visited_on
+    for (const [userId, overall] of t.ratings) {
+      if (overall == null) continue
+      const s = entry.scores.get(userId) || { total: 0, count: 0 }
+      s.total += overall
+      s.count += 1
+      entry.scores.set(userId, s)
+    }
+    byOyster.set(t.oyster_id, entry)
+  }
+
+  const known = new Map(oysters.map((o) => [o.id, o]))
+  return [...byOyster.entries()]
+    .filter(([id]) => known.has(id))
+    .map(([id, e]) => ({
+      ...known.get(id),
+      lastHad: e.lastHad || null,
+      // user id -> { avg, count }
+      scores: Object.fromEntries([...e.scores].map(([u, s]) => [u, { avg: s.total / s.count, count: s.count }])),
+    }))
+    .sort((a, b) => (b.lastHad || '').localeCompare(a.lastHad || '') || a.name.localeCompare(b.name))
+}
+
+/**
  * All of one person's ratings that have an overall score, each tagged with its
  * oyster and night, newest night first. Ratings are per night (an oyster can
  * score differently depending on what else was on the plate); this powers the

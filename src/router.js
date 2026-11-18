@@ -7,6 +7,7 @@ const routes = [
   { path: '/login', name: 'login', component: () => import('./views/LoginView.vue'), meta: { public: true } },
   { path: '/add/:visitId?', name: 'add', component: () => import('./views/AddDateView.vue') },
   { path: '/dates', name: 'dates', component: () => import('./views/DatesView.vue') },
+  { path: '/oysters', name: 'oysters', component: () => import('./views/OystersView.vue') },
   { path: '/visit/:id', name: 'visit', component: () => import('./views/VisitView.vue') },
   { path: '/oyster/:id', name: 'oyster', component: () => import('./views/OysterView.vue') },
   { path: '/oyster/:id/pin', name: 'pin', component: () => import('./views/PinPickerView.vue') },

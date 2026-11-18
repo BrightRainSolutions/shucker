@@ -175,9 +175,10 @@ Slider endpoints, low to high. Keep the copy playful.
 ## 5. Screens and flows
 
 ### Landing
-Two big buttons, nothing else (plus a small profile/sign-out affordance):
+Three buttons, nothing else (plus a small profile/sign-out affordance):
 - **Add Oyster Date** → becomes **Join Tonight at {place}** if a visit already exists for today. Tapping it goes straight into that visit.
 - **See Oyster Dates**
+- **See Oysters**: the answer to "have I had this before, and did I like it?" (see below).
 
 ### Add Oyster Date (stepper, 4 steps)
 1. **Where and when.** Place combobox: existing places, sorted nearest-first if geolocation is granted, else most recent. Last option: **+ Add place** (inline form: name, city, pin defaults to current location, editable on a small map). Date defaults to today. Also a "Home" toggle that clears place. On continue: upsert visit on `(place_id, visited_on)` and use whatever id comes back.
@@ -196,6 +197,9 @@ Everything autosaves. No final Submit button.
 
 ### Visit detail
 The Photo full width. Place, date, notes. Each tasting: oyster name and growing area, one row per person who rated, in their profile color, with grouped bars per attribute (one bar per rater), Would Order Again for each, notes, close-up photos. Add another oyster or photo from here. Each oyster you haven't rated that night shows "You haven't rated it tonight · Your last: 5 · Oct 13" and a Rate button that opens that card.
+
+### See Oysters
+Every oyster the family has had (never-tried catalog oysters don't appear), most recently had first. One search box matches name, grower, growing area and region. Each row: name, growing area, when it was last had, and a chip per person who scored it, in their color: their average Overall across the nights they scored it, with the number of nights, e.g. "David 4.3 (3)". Ratings without an Overall don't count. Tap → oyster detail. A search with no match says it's never been had.
 
 ### Oyster detail
 Name, grower, growing area, species, Oysterater link (the saved page if set, otherwise an Oysterater search for the name). Mini map of origin (or "Needs a pin" button). Averages per person who has rated it, across all tastings (grouped bars, one per person). "Your latest: 5 · Oct 13" near the top. Every time we've had it: date, place, each rater's overall, thumbnail; nights you haven't rated get a Rate button (no edit buttons; true errors are fixed in the backend).

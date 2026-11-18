@@ -63,10 +63,16 @@ async function doSignOut() {
         <span class="kicker">{{ today ? 'Already shucking' : 'Tonight?' }}</span>
         <span class="label">{{ addLabel }}</span>
       </button>
-      <RouterLink to="/dates" class="big-btn see">
-        <span class="kicker">The archive</span>
-        <span class="label">See Oyster Dates</span>
-      </RouterLink>
+      <div class="pair">
+        <RouterLink to="/dates" class="big-btn see">
+          <span class="kicker">The archive</span>
+          <span class="label">See Oyster Dates</span>
+        </RouterLink>
+        <RouterLink to="/oysters" class="big-btn oysters">
+          <span class="kicker">Had it before?</span>
+          <span class="label">See Oysters</span>
+        </RouterLink>
+      </div>
     </div>
   </main>
 </template>
@@ -106,6 +112,10 @@ async function doSignOut() {
 .mark { width: min(44vw, 200px); height: auto; border-radius: 22%; filter: drop-shadow(0 10px 20px rgba(11, 58, 91, 0.2)); }
 h1 { font-size: 2.4rem; margin: 6px 0 0; }
 .buttons { display: flex; flex-direction: column; gap: 16px; margin-top: auto; }
+/* The two "see" buttons share a row so the home screen still fits a phone. */
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pair .big-btn { min-height: 130px; padding: 16px 18px; }
+.pair .label { font-size: 1.45rem; }
 .big-btn {
   display: flex;
   flex-direction: column;
@@ -145,4 +155,5 @@ h1 { font-size: 2.4rem; margin: 6px 0 0; }
 .add { background: var(--coral); color: #fff; }
 .add.join { background: var(--lemon); color: var(--ink); }
 .see { background: var(--sea); color: var(--cream); }
+.oysters { background: var(--kelp); color: var(--cream); }
 </style>
