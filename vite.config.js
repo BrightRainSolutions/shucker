@@ -1,8 +1,25 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 
-export default defineConfig({
+// Dev twin of the /neon-auth rule in netlify.toml. Builds don't need it.
+function authProxy(mode) {
+  const url = loadEnv(mode, process.cwd(), '').NEON_AUTH_BASE_URL
+  if (!url) return undefined
+  const auth = new URL(url)
+  return {
+    '/neon-auth': {
+      target: auth.origin,
+      changeOrigin: true,
+      cookieDomainRewrite: '',
+      rewrite: (path) => path.replace(/^\/neon-auth/, auth.pathname),
+    },
+  }
+}
+
+export default defineConfig(({ command, mode }) => {
+  return {
+  server: { proxy: command === 'serve' ? authProxy(mode) : undefined },
   build: { chunkSizeWarningLimit: 1000 },
   plugins: [
     vue(),
@@ -44,4 +61,5 @@ export default defineConfig({
       },
     }),
   ],
+  }
 })

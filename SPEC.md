@@ -19,7 +19,7 @@ Family members only, accounts added by hand. Everyone sees all visits. No public
 | Hosting | Netlify (static) | SPA redirect: `/* /index.html 200` |
 | Repo | `BrightRainSolutions/shucker` | Public (Netlify's free plan won't build private org repos). No secrets in the repo. |
 
-Environment variables: `VITE_NEON_AUTH_URL`, `VITE_NEON_DATA_API_URL`. Neither is a secret; a verified token and RLS do the gating. `ANTHROPIC_API_KEY` (Netlify only, secret, never `VITE_`-prefixed) for the oyster lookup (see 6).
+Environment variables: `VITE_NEON_DATA_API_URL` (not a secret; a verified token and RLS do the gating). Sign-in goes through the site's own `/neon-auth` path, proxied to Neon Auth by `netlify.toml` (and `NEON_AUTH_BASE_URL` in dev), so its cookie is first-party. `ANTHROPIC_API_KEY` (Netlify only, secret, never `VITE_`-prefixed) for the oyster lookup (see 6).
 
 ---
 
