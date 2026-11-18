@@ -38,7 +38,7 @@ async function submit() {
     <div v-if="!configured" class="card stack">
       <h3>Not wired up yet</h3>
       <p class="muted">
-        Set <code>VITE_NEON_AUTH_URL</code> and <code>VITE_NEON_DATA_API_URL</code> in <code>.env</code>, then restart.
+        Set <code>VITE_NEON_DATA_API_URL</code> and <code>NEON_AUTH_BASE_URL</code> in <code>.env</code>, then restart.
       </p>
     </div>
 

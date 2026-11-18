@@ -43,11 +43,11 @@ Family colors should be distinct, bold, and readable with white text on them.
 
 The app signs in through Neon Auth and sends its short-lived token with each Data API request. Postgres runs the query as the `authenticated` role, and `auth.uid()` reads the user id from the token for the RLS policies. Logins live in the `neon_auth` schema of the same database. Sessions last about 7 days.
 
-Neon Auth keeps the session in a cookie on its own domain. That works in iPhone Safari and installed home-screen apps as tested in 2026-11; if sign-ins ever stop sticking on iPhones, first try proxying the auth URL through the site's own domain with a Netlify rewrite.
+Neon Auth keeps the session in a cookie. Sign-in goes through the site's own `/neon-auth` path (a rewrite in `netlify.toml`, and the dev server's proxy in `vite.config.js`), which makes that cookie first-party. Without it, some iPhone home-screen apps threw the cookie away and stayed on the sign-in screen after a successful sign-in. If the Neon Auth URL ever changes, update `netlify.toml` and `NEON_AUTH_BASE_URL`.
 
 ## Deploy (Netlify)
 
-Connect the repo, build `npm run build`, publish `dist` (already in `netlify.toml`, including the SPA redirect). Set `VITE_NEON_AUTH_URL` and `VITE_NEON_DATA_API_URL` in Netlify's environment variables, with scopes including Builds and Functions (the default), since the oyster-lookup function reads them too. Also set `ANTHROPIC_API_KEY` (secret) for the oyster lookup; without it in the Deploy Previews context, lookups fail on previews. Never give it a `VITE_` prefix: those are compiled into the app.
+Connect the repo, build `npm run build`, publish `dist` (already in `netlify.toml`, including the SPA redirect). Set `VITE_NEON_DATA_API_URL` in Netlify's environment variables, with scopes including Builds and Functions (the default), since the oyster-lookup function reads them too. Also set `ANTHROPIC_API_KEY` (secret) for the oyster lookup; without it in the Deploy Previews context, lookups fail on previews. Never give it a `VITE_` prefix: those are compiled into the app.
 
 On each iPhone: open the site in Safari → Share → Add to Home Screen.
 
