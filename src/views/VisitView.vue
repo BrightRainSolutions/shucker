@@ -217,10 +217,12 @@ const shortDate = (iso) => formatDate(iso, { month: 'short', day: 'numeric' })
 .city { opacity: 0.85; }
 .add-cover { position: absolute; right: 16px; top: calc(70px + var(--safe-top)); z-index: 1; }
 
+/* Opens the oyster's page; orange instead of link styling. */
 .tasting .oname {
   font-family: var(--display);
   font-weight: 800;
   font-size: 1.35rem;
+  color: var(--sun);
   text-decoration: none;
 }
 .unrated {

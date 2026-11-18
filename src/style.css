@@ -9,6 +9,8 @@
   --kelp-2: #5c9a6b;
   --lemon: #ffd23f;
   --coral: #ff6b5a;
+  /* Sun orange, deepened in light mode so it reads as text (3.8:1 on cards). */
+  --sun: #d95700;
   --ink: #10202c;
 
   --bg: var(--cream);
@@ -38,6 +40,7 @@
   :root {
     --bg: #081a26;
     --surface: #0f2635;
+    --sun: #ff6600;
     --surface-2: #163246;
     --text: #f3ead6;
     --muted: #9fb3bf;
